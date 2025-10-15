@@ -1,0 +1,607 @@
+<!doctype html>
+<html lang="ar">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>النظام الشمسي — واقعي + خلفية سينمائية</title>
+<style>
+:root{
+  --bg:#02030a;
+  --panel:rgba(255,255,255,0.06);
+  --neon:#6ef0ff;
+  --neon2:#b98cff;
+  --muted:#cbd5e1;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;font-family:Inter, system-ui, Arial;direction:rtl;background:radial-gradient(ellipse at center,#00010a 0%, #01010a 40%, #000004 100%);color:#fff;overflow:hidden}
+canvas{display:block;width:100%;height:100%;}
+/* لوحة التحكم (تصميم خيال علمي شفاف) */
+.ui{
+  position:fixed;left:18px;top:18px;padding:12px;border-radius:14px;
+  background:linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+  border:1px solid rgba(110,240,255,0.08);
+  box-shadow:0 8px 30px rgba(0,0,0,0.6), 0 0 30px rgba(110,240,255,0.02) inset;
+  color:#fff;z-index:40;min-width:260px;
+  backdrop-filter:blur(6px);
+}
+.ui h1{font-size:16px;margin:0 0 10px;text-align:center;color:var(--neon2);letter-spacing:0.4px}
+.row{display:flex;gap:10px;align-items:center;margin:8px 0;}
+label{font-size:13px;opacity:0.95;width:70px}
+input[type=range]{flex:1}
+button{
+  flex:1;
+  background:transparent;border:1px solid rgba(255,255,255,0.08);
+  padding:8px 10px;border-radius:10px;color:#fff;cursor:pointer;
+  transition:all .18s; font-weight:600;
+}
+button:hover{border-color:var(--neon2);box-shadow:0 0 12px rgba(185,140,255,0.12)}
+#reset{background:linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));}
+
+/* hint */
+.hint{
+  position:fixed;right:18px;bottom:18px;background:linear-gradient(90deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+  padding:10px 14px;border-radius:12px;color:var(--muted);font-size:13px;backdrop-filter:blur(6px);
+  border:1px solid rgba(110,240,255,0.04);
+  z-index:30;
+}
+/* credits */
+.credits{
+  position:fixed;left:50%;bottom:18px;transform:translateX(-50%);
+  font-size:12px;font-weight:700;color:transparent;
+  background:linear-gradient(90deg,#ffd36b,#fff5cc,#ffd36b);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  letter-spacing:0.6px;z-index:30;
+}
+
+/* info card */
+.infoCard{
+  position:fixed;pointer-events:none;
+  padding:8px 12px;border-radius:10px;
+  background:rgba(5,6,15,0.88);
+  color:#fff;font-size:13px;
+  border:1px solid rgba(110,240,255,0.06);
+  box-shadow:0 8px 30px rgba(0,0,0,0.6);
+  transition:0.12s;z-index:45;display:none;
+}
+
+/* زر تشغيل الصوت (واضح أسفل يمين) */
+#soundBtn{
+  position:fixed;right:18px;bottom:18px;z-index:50;
+  background:linear-gradient(180deg, rgba(110,240,255,0.12), rgba(185,140,255,0.06));
+  border:1px solid rgba(110,240,255,0.16);
+  color:#fff;padding:10px 12px;border-radius:12px;font-weight:700;
+  backdrop-filter:blur(6px);cursor:pointer;box-shadow:0 8px 30px rgba(110,240,255,0.06);
+}
+#soundBtn.hidden{display:none}
+
+/* أيقونة الترجمـة في أعلى يمين */
+#langBtn{
+  position:fixed;right:18px;top:18px;z-index:50;
+  width:44px;height:44px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+  border:1px solid rgba(255,255,255,0.06);
+  cursor:pointer;backdrop-filter:blur(6px);
+  box-shadow:0 6px 20px rgba(0,0,0,0.5);
+}
+.langIcon{font-size:18px;color:var(--neon);}
+
+/* small responsive tweaks */
+@media (max-width:520px){
+  .ui{left:10px;top:10px;min-width:200px;padding:10px}
+  label{display:none}
+  #soundBtn{right:12px;bottom:12px;padding:8px 10px}
+  #langBtn{right:12px;top:12px;width:40px;height:40px}
+}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div class="ui" id="ui">
+  <h1 id="title">النظام الشمسي</h1>
+  <div class="row"><label id="lblSpeed">السرعة</label><input id="speed" type="range" min="-3" max="3" step="0.01" value="0.6"></div>
+  <div class="row"><label id="lblZoom">تكبير</label><input id="zoom" type="range" min="0.4" max="2" step="0.01" value="1"></div>
+  <div class="row"><button id="pause">إيقاف</button><button id="toggleTrails">تفعيل الآثار</button></div>
+  <div class="row"><button id="reset">إعادة ضبط</button></div>
+  <div style="height:6px"></div>
+  <div style="font-size:12px;opacity:0.9;color:var(--muted);text-align:center" id="status">جارٍ تحميل الصور...</div>
+</div>
+
+<button id="soundBtn">🔊 تشغيل الصوت</button>
+<button id="langBtn" title="Toggle language"><span class="langIcon">🌐</span></button>
+
+<div class="hint" id="hint">اسحب للتدوير — عجلة الفأرة للتكبير/التصغير</div>
+<div class="credits">صُنع بواسطة ENG | MOHAMED ALI</div>
+<div class="infoCard" id="infoCard"></div>
+
+<!-- ملف صوت هادئ (loop) -->
+<audio id="spaceAudio" loop preload="auto">
+  <source src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_2a7cbd0132.mp3?filename=deep-space-ambient-110003.mp3" type="audio/mpeg">
+</audio>
+
+<script>
+/*
+  الملف النهائي: 
+  - preload لجميع صور الكواكب (crossOrigin anonymous)
+  - نجوم متوهجة متلألئة + شهب سريعة (سينمائية)
+  - sun: gradient متحرك نابض
+  - زر صوت في أسفل يمين يبدأ الصوت بعد ضغط المستخدم
+  - أيقونة ترجمة في أعلى يمين (AR <-> EN)
+  - بدأ الرسوم بعد تحميل الصور (أو بعد timeout كـ fallback)
+*/
+
+/* ====== إعدادات وبيانات الكواكب (صور عامة من Wikimedia/NASA) ====== */
+const planetsData = [
+  {nameAr:'عطارد', nameEn:'Mercury', img:'https://upload.wikimedia.org/wikipedia/commons/4/4a/Mercury_in_true_color.jpg', r:70, size:6, o:2.3},
+  {nameAr:'الزهرة', nameEn:'Venus', img:'https://upload.wikimedia.org/wikipedia/commons/0/02/Venus-real_color.jpg', r:110, size:10, o:1.4},
+  {nameAr:'الأرض', nameEn:'Earth', img:'https://upload.wikimedia.org/wikipedia/commons/9/97/The_Earth_seen_from_Apollo_17.jpg', r:160, size:12, o:1},
+  {nameAr:'المريخ', nameEn:'Mars', img:'https://upload.wikimedia.org/wikipedia/commons/0/02/OSIRIS_Mars_true_color.jpg', r:210, size:9, o:0.8},
+  {nameAr:'المشتري', nameEn:'Jupiter', img:'https://upload.wikimedia.org/wikipedia/commons/e/e2/Jupiter.jpg', r:290, size:20, o:0.4},
+  {nameAr:'زحل', nameEn:'Saturn', img:'https://upload.wikimedia.org/wikipedia/commons/5/5e/Saturn_during_Equinox.jpg', r:360, size:18, o:0.32},
+  {nameAr:'أورانوس', nameEn:'Uranus', img:'https://upload.wikimedia.org/wikipedia/commons/3/3d/Uranus2.jpg', r:410, size:16, o:0.22},
+  {nameAr:'نبتون', nameEn:'Neptune', img:'https://upload.wikimedia.org/wikipedia/commons/5/56/Neptune_Full.jpg', r:460, size:16, o:0.18},
+  {nameAr:'بلوتو', nameEn:'Pluto', img:'https://upload.wikimedia.org/wikipedia/commons/2/2a/Nh-pluto-in-true-color_2x_JPEG_edit_frame.jpg', r:500, size:8, o:0.12},
+];
+
+const textures = {}; // سيحمل صور الكواكب
+
+/* ====== عناصر DOM ====== */
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d',{alpha:false});
+let DPR = Math.max(1, window.devicePixelRatio || 1);
+function resize(){ DPR = Math.max(1, window.devicePixelRatio || 1); canvas.width = Math.floor(innerWidth * DPR); canvas.height = Math.floor(innerHeight * DPR); canvas.style.width = innerWidth + 'px'; canvas.style.height = innerHeight + 'px'; ctx.setTransform(DPR,0,0,DPR,0,0); }
+addEventListener('resize', resize); resize();
+
+const infoCard = document.getElementById('infoCard');
+const statusEl = document.getElementById('status');
+
+/* ====== واجهة المستخدم ====== */
+const speedInput = document.getElementById('speed');
+const zoomInput = document.getElementById('zoom');
+const pauseBtn = document.getElementById('pause');
+const toggleTrailsBtn = document.getElementById('toggleTrails');
+const resetBtn = document.getElementById('reset');
+const soundBtn = document.getElementById('soundBtn');
+const langBtn = document.getElementById('langBtn');
+const titleEl = document.getElementById('title');
+const lblSpeed = document.getElementById('lblSpeed');
+const lblZoom = document.getElementById('lblZoom');
+const hint = document.getElementById('hint');
+
+let language = 'ar'; // 'ar' or 'en'
+const translations = {
+  ar:{
+    title:'النظام الشمسي',
+    speed:'السرعة',
+    zoom:'تكبير',
+    pause:'إيقاف',
+    play:'تشغيل',
+    toggleTrailsOn:'تفعيل الآثار',
+    toggleTrailsOff:'إيقاف الآثار',
+    reset:'إعادة ضبط',
+    hint:'اسحب للتدوير — عجلة الفأرة للتكبير/التصغير',
+    statusLoading:'جارٍ تحميل الصور...',
+    statusReady:'جاهز — اضغط لتشغيل الصوت أو تفاعل مع الصفحة'
+  },
+  en:{
+    title:'Solar System',
+    speed:'Speed',
+    zoom:'Zoom',
+    pause:'Pause',
+    play:'Play',
+    toggleTrailsOn:'Enable Trails',
+    toggleTrailsOff:'Disable Trails',
+    reset:'Reset',
+    hint:'Drag to rotate — mouse wheel to zoom',
+    statusLoading:'Loading textures...',
+    statusReady:'Ready — click to enable sound or interact'
+  }
+};
+function applyLanguage(){
+  const t = translations[language];
+  titleEl.textContent = t.title;
+  lblSpeed.textContent = t.speed;
+  lblZoom.textContent = t.zoom;
+  pauseBtn.textContent = paused ? t.play : t.pause;
+  toggleTrailsBtn.textContent = trails ? t.toggleTrailsOff : t.toggleTrailsOn;
+  resetBtn.textContent = t.reset;
+  hint.textContent = t.hint;
+  statusEl.textContent = allLoaded ? t.statusReady : t.statusLoading;
+}
+langBtn.addEventListener('click', ()=>{
+  language = (language === 'ar') ? 'en' : 'ar';
+  applyLanguage();
+});
+
+/* ====== صوت الخلفية ====== */
+const audio = document.getElementById('spaceAudio');
+let audioStarted = false;
+soundBtn.addEventListener('click', ()=>{
+  // محاولة تشغيل الصوت بعد تفاعل المستخدم
+  audio.play().then(()=>{ audioStarted = true; soundBtn.classList.add('hidden'); }).catch(()=>{ alert('المتصفح منع التشغيل التلقائي — الرجاء التفاعل مع الصفحة (نقرة)'); });
+});
+
+/* ====== تحميل الصور مسبقًا مع crossOrigin + fallback timeout ====== */
+let allLoaded = false;
+let loadedCount = 0;
+const loadTimeoutMs = 7000; // إن لم تكمل التحميل خلال هذا الزمن نبدأ على أي حال (fallback)
+let loadTimer;
+
+function startLoadingTextures(){
+  loadTimer = setTimeout(()=>{ // fallback: ابدأ بعد المهلة حتى لو بعض الصور لم تُحمّل
+    console.warn('Timeout reached while loading textures — starting anyway.');
+    allLoaded = true;
+    statusEl.textContent = translations[language].statusReady;
+    startAnimation();
+  }, loadTimeoutMs);
+
+  planetsData.forEach(p=>{
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.src = p.img;
+    img.onload = ()=>{
+      textures[p.nameAr] = img;
+      loadedCount++;
+      statusEl.textContent = `${translations[language].statusLoading} (${loadedCount}/${planetsData.length})`;
+      if(loadedCount === planetsData.length){
+        clearTimeout(loadTimer);
+        allLoaded = true;
+        statusEl.textContent = translations[language].statusReady;
+        startAnimation();
+      }
+    };
+    img.onerror = ()=>{
+      console.warn('Failed to load', p.img);
+      textures[p.nameAr] = null; // سنستخدم تدرج لون بديل
+      loadedCount++;
+      if(loadedCount === planetsData.length){
+        clearTimeout(loadTimer);
+        allLoaded = true;
+        statusEl.textContent = translations[language].statusReady;
+        startAnimation();
+      }
+    };
+  });
+}
+
+/* ====== مشاهد الخلفية: نجوم متوهجة + شهب سريعة ====== */
+const stars = [];
+const STAR_COUNT = 260;
+for(let i=0;i<STAR_COUNT;i++){
+  stars.push({
+    x: Math.random()*innerWidth,
+    y: Math.random()*innerHeight,
+    s: Math.random()*1.8 + 0.2,
+    alpha: Math.random()*0.9 + 0.1,
+    twinkleSpeed: Math.random()*0.02 + 0.005,
+    phase: Math.random()*Math.PI*2
+  });
+}
+
+class Meteor {
+  constructor(){
+    this.reset();
+  }
+  reset(){
+    // Meteors come from random outside edge with fast speed
+    const side = Math.random();
+    if(side < 0.6){
+      // from right-top region
+      this.x = Math.random()*innerWidth*0.8 + innerWidth*0.2;
+      this.y = Math.random()*innerHeight*0.2;
+      this.vx = -(Math.random()*2.5 + 6);
+      this.vy = Math.random()*1.2 + 1.5;
+    } else {
+      // from left-top
+      this.x = Math.random()*innerWidth*0.2;
+      this.y = Math.random()*innerHeight*0.25;
+      this.vx = Math.random()*3 + 4.5;
+      this.vy = Math.random()*1 + 1.2;
+      if(Math.random()>0.5){ this.vx *= -1; } // vary direction
+    }
+    this.len = Math.random()*80 + 60;
+    this.life = 1;
+    this.decay = Math.random()*0.008 + 0.004;
+    this.width = Math.random()*1.2 + 0.6;
+    this.color = `rgba(170,220,255,`;
+  }
+  step(dt){
+    this.x += this.vx * dt * 60;
+    this.y += this.vy * dt * 60;
+    this.life -= this.decay * dt * 60;
+    if(this.x < -200 || this.x > innerWidth+200 || this.y > innerHeight+200 || this.life <= 0) this.reset();
+  }
+  draw(ctx){
+    const alpha = Math.max(0, Math.min(1, this.life));
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const grd = ctx.createLinearGradient(this.x, this.y, this.x - this.vx*0.6*this.len, this.y - this.vy*0.6*this.len);
+    grd.addColorStop(0, `${this.color}${alpha})`);
+    grd.addColorStop(0.6, `${this.color}${alpha*0.35})`);
+    grd.addColorStop(1, `${this.color}0)`);
+    ctx.beginPath();
+    ctx.strokeStyle = grd;
+    ctx.lineWidth = this.width;
+    ctx.moveTo(this.x, this.y);
+    ctx.lineTo(this.x - this.vx*0.6*this.len, this.y - this.vy*0.6*this.len);
+    ctx.stroke();
+    // spark head
+    ctx.beginPath();
+    ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+    ctx.arc(this.x, this.y, Math.max(1.4, this.width*1.4), 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+const meteors = [];
+const METEOR_COUNT = 7; // درامي وسريع
+for(let i=0;i<METEOR_COUNT;i++) meteors.push(new Meteor());
+
+/* ====== المتغيرات الفيزيائية للرسم ====== */
+let time = 0;
+let speed = parseFloat(speedInput.value) || 0.6;
+let zoom = parseFloat(zoomInput.value) || 1;
+let paused = false;
+let trails = false;
+
+/* ربط عناصر الواجهة */
+speedInput.addEventListener('input', e=>{ speed = parseFloat(e.target.value); });
+zoomInput.addEventListener('input', e=>{ zoom = parseFloat(e.target.value); });
+pauseBtn.addEventListener('click', ()=>{
+  paused = !paused;
+  pauseBtn.textContent = paused ? translations[language].play : translations[language].pause;
+});
+toggleTrailsBtn.addEventListener('click', ()=>{
+  trails = !trails;
+  toggleTrailsBtn.textContent = trails ? translations[language].toggleTrailsOff : translations[language].toggleTrailsOn;
+});
+resetBtn.addEventListener('click', ()=>{
+  time = 0; speed = 0.6; zoom = 1;
+  speedInput.value = speed; zoomInput.value = zoom;
+});
+
+/* ====== تعامل الفأرة / الهاتف للتدوير وتكبير ====== */
+let isDragging = false, lastX = 0;
+canvas.addEventListener('pointerdown', e=>{ isDragging = true; lastX = e.clientX; try{ canvas.setPointerCapture(e.pointerId); }catch{}; });
+canvas.addEventListener('pointermove', e=>{
+  if(!isDragging) return;
+  const dx = e.clientX - lastX; lastX = e.clientX;
+  speed += dx * 0.008;
+  speedInput.value = speed.toFixed(2);
+});
+canvas.addEventListener('pointerup', e=>{ isDragging = false; try{ canvas.releasePointerCapture(e.pointerId); }catch{}; });
+canvas.addEventListener('wheel', e=>{
+  e.preventDefault();
+  zoom += -e.deltaY * 0.0012;
+  zoom = Math.min(2, Math.max(0.4, zoom));
+  zoomInput.value = zoom.toFixed(2);
+}, {passive:false});
+
+/* عندما يُؤشر على كوكب نعرض بطاقة المعلومة */
+canvas.addEventListener('mousemove', e=>{
+  const w = canvas.width / DPR, h = canvas.height / DPR;
+  const cx = w/2, cy = h/2;
+  const mx = (e.clientX - cx) / zoom;
+  const my = (e.clientY - cy) / zoom;
+  let found = false;
+  for(const p of planetsData){
+    const ang = time * p.o;
+    const x = Math.cos(ang) * p.r;
+    const y = Math.sin(ang) * p.r * 0.6;
+    const dx = mx - x, dy = my - y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    if(dist < p.size + 6){
+      infoCard.style.display = 'block';
+      infoCard.style.left = (e.clientX + 18) + 'px';
+      infoCard.style.top = (e.clientY + 18) + 'px';
+      infoCard.innerHTML = `<b>${language==='ar'?p.nameAr:p.nameEn}</b><br>مدار: ${p.r}px — حجم تقريبي: ${p.size}`;
+      found = true; break;
+    }
+  }
+  if(!found) infoCard.style.display = 'none';
+});
+
+/* ====== رسم الشمس (gradient نابض + flare) ====== */
+function drawSun(ctx, t){
+  ctx.save();
+  const baseRadius = 46;
+  // outer glow
+  const g1 = ctx.createRadialGradient(0,0,0,0,0,baseRadius*5);
+  g1.addColorStop(0, 'rgba(255,245,200,0.95)');
+  g1.addColorStop(0.25, 'rgba(255,200,90,0.32)');
+  g1.addColorStop(0.6, 'rgba(255,100,10,0.08)');
+  g1.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g1;
+  ctx.beginPath(); ctx.arc(0,0, baseRadius*5 + Math.sin(t*1.5)*2, 0, Math.PI*2); ctx.fill();
+
+  // core
+  const core = ctx.createRadialGradient(0,0,0,0,0,baseRadius);
+  core.addColorStop(0, '#fffbe0');
+  core.addColorStop(0.4, '#ffd26b');
+  core.addColorStop(1, '#ff7f1a');
+  ctx.fillStyle = core;
+  ctx.beginPath(); ctx.arc(0,0, baseRadius + Math.sin(t*1.8)*1.5, 0, Math.PI*2); ctx.fill();
+
+  // subtle corona spikes (animated)
+  ctx.globalCompositeOperation = 'lighter';
+  for(let i=0;i<6;i++){
+    const ang = t*0.9 + i * (Math.PI*2/6);
+    const len = baseRadius*1.8 + Math.sin(t*1.4 + i)*6;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(ang)*baseRadius*0.9, Math.sin(ang)*baseRadius*0.9);
+    ctx.lineTo(Math.cos(ang)*(baseRadius+len), Math.sin(ang)*(baseRadius+len));
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = `rgba(255,180,80,0.06)`;
+    ctx.stroke();
+  }
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.restore();
+}
+
+/* ====== رسم النجوم (twinkle) ====== */
+function drawStars(ctx, t){
+  ctx.save();
+  // layered glow
+  for(const s of stars){
+    const a = s.alpha * (0.6 + 0.4 * Math.sin(s.phase + t * s.twinkleSpeed * 4));
+    // small white core
+    ctx.beginPath();
+    ctx.globalAlpha = a;
+    ctx.fillStyle = 'white';
+    ctx.arc(s.x, s.y, s.s, 0, Math.PI*2);
+    ctx.fill();
+    // soft glow
+    ctx.globalAlpha = a*0.12;
+    ctx.beginPath();
+    ctx.fillStyle = 'white';
+    ctx.arc(s.x, s.y, s.s*5, 0, Math.PI*2);
+    ctx.fill();
+    s.phase += s.twinkleSpeed * 0.5;
+  }
+  ctx.restore();
+}
+
+/* ====== رسم الكواكب (textures أو fallback gradient) ====== */
+function drawPlanet(ctx, p, x, y, size, angTime){
+  // إذا الصورة جاهزة نستخدمها ثم نضيف ظل جانبي
+  const tex = textures[p.nameAr];
+  if(tex && tex.complete){
+    // clip into circle
+    ctx.save();
+    ctx.beginPath(); ctx.arc(x,y,size,0,Math.PI*2); ctx.clip();
+    // rotate texture slightly to simulate rotation (use pattern)
+    // drawImage stretched to circle box
+    ctx.drawImage(tex, x - size, y - size, size*2, size*2);
+    ctx.restore();
+
+    // shadow (illuminated from sun center at 0,0 so shadow on far side)
+    const shadow = ctx.createRadialGradient(x + size*0.45, y + size*0.45, size*0.1, x, y, size*1.3);
+    shadow.addColorStop(0,'rgba(0,0,0,0)');
+    shadow.addColorStop(1,'rgba(0,0,0,0.45)');
+    ctx.beginPath(); ctx.fillStyle = shadow; ctx.arc(x,y,size,0,Math.PI*2); ctx.fill();
+  } else {
+    // fallback gradient
+    const g = ctx.createRadialGradient(x - size*0.3, y - size*0.3, size*0.2, x, y, size);
+    g.addColorStop(0,'#d0d0d0');
+    g.addColorStop(1,'#6b6b6b');
+    ctx.beginPath(); ctx.fillStyle = g; ctx.arc(x,y,size,0,Math.PI*2); ctx.fill();
+    // simple shadow
+    ctx.beginPath(); ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.arc(x+size*0.4,y+size*0.4,size,0,Math.PI*2); ctx.fill();
+  }
+
+  // label
+  ctx.font = '11px sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.fillText(language==='ar'?p.nameAr:p.nameEn, x + size + 6, y + 4);
+}
+
+/* ====== المسار الرئيسي: رسم كل شيء ====== */
+function renderScene(now){
+  const w = canvas.width / DPR, h = canvas.height / DPR;
+  // trails effect: إذا مفعل نخفظ جزء صغير للذيبول
+  if(trails){
+    ctx.fillStyle = 'rgba(0,0,8,0.12)';
+  } else {
+    ctx.fillStyle = 'rgba(0,0,6,1)';
+  }
+  ctx.fillRect(0,0,w,h);
+
+  // رسم النجوم و meteors في الخلفية (غير متأثر بالzoom/translate)
+  drawStars(ctx, now*0.001);
+
+  // meteors
+  for(const m of meteors) m.draw(ctx);
+
+  // transform للمشهد المركزي
+  ctx.save();
+  ctx.translate(w/2, h/2);
+  ctx.scale(zoom, zoom);
+
+  // الشمس في المركز
+  drawSun(ctx, now*0.001);
+
+  // مدارات وكواكب
+  ctx.lineWidth = 1;
+  for(const p of planetsData){
+    // orbit
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.arc(0,0,p.r,0,Math.PI*2);
+    ctx.stroke();
+
+    // position (elliptical tilt on y)
+    const ang = time * p.o;
+    const x = Math.cos(ang) * p.r;
+    const y = Math.sin(ang) * p.r * 0.6;
+
+    // draw planet
+    drawPlanet(ctx, p, x, y, p.size, ang);
+
+    // rings for Saturn
+    if(p.nameEn === 'Saturn'){
+      ctx.beginPath();
+      ctx.ellipse(x, y, p.size*2.6, p.size*0.8, Math.PI/6, 0, Math.PI*2);
+      ctx.strokeStyle = 'rgba(255,230,170,0.35)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+  }
+
+  ctx.restore();
+}
+
+/* ====== حلقة الأنيميشن ====== */
+let last = performance.now();
+function loop(now){
+  const dt = (now - last) / 1000; last = now;
+  if(!paused) time += dt * speed * 0.9;
+
+  // تحديث حركة الشهب
+  for(const m of meteors) m.step(dt);
+  // تحديث النجوم (phases updated during draw)
+
+  renderScene(now / 10); // تمرير وقت للتأثيرات
+  requestAnimationFrame(loop);
+}
+
+/* ====== بدء الأنيميشن بعد تحميل الصور أو بعد fallback ====== */
+let animationStarted = false;
+function startAnimation(){
+  if(animationStarted) return;
+  animationStarted = true;
+  last = performance.now();
+  requestAnimationFrame(loop);
+  // نرغب بأن يُصبح status جاهز
+  statusEl.textContent = translations[language].statusReady;
+}
+
+/* ====== بدء تحميل الصور ثم الانتظار (أو fallback) ====== */
+startLoadingTextures(); // يبدأ التحميل
+// ملاحظة: startAnimation() سيُستدعى عند اكتمال التحميل أو عند انتهاء مهلة الفشل
+
+/* ====== تأكيد تفاعل المستخدم لتشغيل الصوت: سنحاول البدء عند أول تفاعل عام كذلك ====== */
+function tryStartAudioOnInteraction(){
+  if(audioStarted) return;
+  audio.play().then(()=>{ audioStarted = true; soundBtn.classList.add('hidden'); }).catch(()=>{ /* لا تقلق — المستخدم يجب أن يضغط الزر */ });
+}
+['pointerdown','keydown','wheel','touchstart'].forEach(ev=>{
+  window.addEventListener(ev, tryStartAudioOnInteraction, {once:true});
+});
+
+/* ====== start fallback: إذا لم تُحمّل الصور خلال المهلة فإن startLoadingTextures() سيبدأ startAnimation */
+/* apply initial language */
+applyLanguage();
+
+/* ====== تهيئة قيم افتراضية لشهب متحركة داخل النافذة عند تغيير الحجم ====== */
+addEventListener('resize', ()=>{
+  // إعادة توزيع النجوم وموقع الشهب
+  for(const s of stars){ s.x = Math.random()*innerWidth; s.y = Math.random()*innerHeight; }
+  for(const m of meteors) m.reset();
+});
+
+/* ====== نبدأ - ملاحظة: الحلقة الحقيقية تبدأ عند startAnimation() الذي يستدعى بعد اكتمال التحميل أو بعد المهلة ====== */
+</script>
+</body>
+</html>
